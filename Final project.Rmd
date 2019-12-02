@@ -1,0 +1,116 @@
+---
+title: "Predict maximum daily temperature"
+author: "Yixuan"
+date: "2019/11/24"
+output: 
+  html_document: default
+  pdf_document: default
+---
+
+In this project, we will be analysing a weather dataset to predict maximum daily temperature of Canberra. Canberra weather dataset has 20 variables and 366 observations.
+
+**Install Needed Packages**
+```{r, echo = TRUE}
+library(leaps)
+library(DAAG)
+```
+
+```{r, echo = TRUE}
+weather_data <- read.csv('C:\\Users\\10186\\Desktop\\MATH 372\\final project\\weather.csv', sep = ',', header = T)
+```
+Weather data
+-------------------------------
+```{r, echo = TRUE}
+nrow(weather_data)
+ncol(weather_data)
+colnames(weather_data)
+```
+Maxtemp is the one we want to predict.
+```{r, echo = TRUE}
+str(weather_data)
+```
+Those variables with factor type are categorical variables that we need to deal with. Numbers followed are the result when you convert them into numeric.
+
+Data cleaning
+-------------------------------
+Remove meaningless variable
+```{r, echo = TRUE}
+weather_data[, ("Date")] <- NULL 
+```
+check the number of unique values.
+```{r, echo = TRUE}
+how.many.unique = sapply(weather_data, function(x) length(unique(x)))
+how.many.unique
+remove <- which(how.many.unique < 10)
+names(weather_data)[remove]
+data.refined <- weather_data[, -remove]
+```
+
+Check NAs.
+```{r, echo = TRUE}
+how.many.NAs = sapply(data.refined, function(x) sum(is.na(x)))
+how.many.NAs
+data.refined <- na.omit(data.refined)
+```
+
+Variable selection
+-------------------------------
+Remove "repeated" variables.
+Convert into numeric
+```{r, echo = TRUE}
+numdata <- sapply(data.refined, as.numeric)
+```
+
+```{r, echo = TRUE}
+res <- cor.test(numdata[,"Temp9am"], numdata[,"Temp3pm"])
+res
+
+res <- cor.test(numdata[,"Pressure9am"], numdata[,"Pressure3pm"])
+res
+
+res <- cor.test(numdata[,"Humidity9am"], numdata[,"Humidity3pm"])
+res
+
+res <- cor.test(numdata[,"WindSpeed9am"], numdata[,"WindSpeed3pm"])
+res
+
+res <- cor.test(numdata[,"WindDir9am"], numdata[,"WindDir3pm"])
+res
+```
+If res > 0.5, I will remove one of them.
+```{r, echo = TRUE}
+data.refined[, ("Temp3pm")] <- NULL 
+data.refined[, ("Pressure3pm")] <- NULL 
+data.refined[, ("Humidity3pm.")] <- NULL
+```
+```{r, echo = TRUE}
+numdata <- sapply(data.refined, as.numeric)
+data.final <- as.data.frame((numdata))
+```
+```{r, echo = TRUE}
+regfit.fwd = regsubsets(MaxTemp ~ ., data.final,method="forward")
+summary(regfit.fwd)
+coef(regfit.fwd,5)
+```
+```{r, echo = TRUE}
+regfit.bwd = regsubsets(MaxTemp ~ ., data.final,method="backward")
+summary(regfit.bwd)
+coef(regfit.bwd,5)
+```
+Both forward and backward selection give us a same model; 
+It contains variable Sunshine, WindSpeed9am,  Humidity9am,  Humidity3pm, and Temp9am.
+```{r, echo = TRUE}
+reg1 = lm(MaxTemp ~ Sunshine+ WindSpeed9am + Humidity9am + Humidity3pm + Temp9am
+          , data = data.final)
+summary(reg1)
+plot(reg1,1)
+```
+
+Cross validation
+-------------------------------
+```
+?cv.lm()
+```
+```{r, echo = TRUE}
+cv.lm(data=data.final, reg1, m=10)
+```
